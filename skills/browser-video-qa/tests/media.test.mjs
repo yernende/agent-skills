@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { captionScreenshot, convertMedia } from '../scripts/media.mjs';
 
 const execute = promisify(execFile);
 const helper = fileURLToPath(new URL('../scripts/media.mjs', import.meta.url));
@@ -61,14 +62,29 @@ test('convert handles spaces/quotes and odd sizes, preserves duration, and creat
   assert.equal(result.width, 102);
   assert.equal(result.height, 66);
   assert.ok(Math.abs(result.duration - 1.2) < 0.11);
-  assert.equal(result.decodeValid, true);
+  assert.equal(result.decodeValid, null);
+  assert.equal(result.verification, 'metadata');
+  assert.equal(result.mode, 'quick');
+  assert.equal(result.profile, 'Main');
+  assert.equal(result.level, 40);
+  assert.equal(result.fps, 25);
+  assert.equal(result.videoTag, 'avc1');
+  assert.equal(result.videoDefault, true);
+  assert.equal(result.brand, 'mp42');
+  assert.equal(result.audio.codec, 'aac');
+  assert.equal(result.audio.profile, 'LC');
+  assert.equal(result.audio.sampleRate, 44100);
+  assert.equal(result.audio.channels, 2);
+  assert.equal(result.audio.default, true);
+  assert.ok(Math.abs(result.audio.duration - result.duration) < 0.1);
   assert.equal(result.bytes, (await stat(output)).size);
   assert.ok(result.elapsedSeconds > 0);
   const bytes = await readFile(output);
   assert.ok(bytes.indexOf('moov') > 0);
   assert.ok(bytes.indexOf('moov') < bytes.indexOf('mdat'), 'MP4 moov atom precedes media data');
-  const inspected = await cli('inspect', output);
+  const inspected = await cli('inspect', output, '--mode=strict');
   assert.equal(inspected.decodeValid, true);
+  assert.equal(inspected.verification, 'full');
   assert.deepEqual(inspected.frames, []);
   t.diagnostic(`convert: ${result.elapsedSeconds}s, ${result.bytes} bytes, ${result.duration}s duration`);
 });
@@ -79,13 +95,19 @@ test('slideshow accepts mixed still codecs and inspect extracts actual PNG frame
   assert.equal(result.kind, 'slideshow');
   assert.equal(result.codec, 'h264');
   assert.equal(result.pixelFormat, 'yuv420p');
+  assert.equal(result.fps, 25);
+  assert.equal(result.profile, 'Main');
+  assert.equal(result.audio.profile, 'LC');
+  assert.equal(result.audio.default, true);
   assert.equal(result.width, 102);
   assert.equal(result.height, 66);
   assert.ok(Math.abs(result.duration - 0.8) < 0.08);
   const framesDir = join(directory, 'review frames');
   const inspected = await cli('inspect', output, '--at=0,0.5', `--frames-dir=${framesDir}`);
+  assert.equal(inspected.verification, 'sampled');
+  assert.equal(inspected.decodeValid, null);
   assert.equal(inspected.kind, 'slideshow');
-  assert.equal(inspected.decodeValid, true);
+  assert.equal(inspected.decodeValid, null);
   assert.deepEqual(inspected.frames.map(frame => frame.time), [0, 0.5]);
   for (const frame of inspected.frames) {
     assert.equal((await readFile(frame.path)).subarray(1, 4).toString(), 'PNG');
@@ -158,8 +180,83 @@ test('full decode rejects a truncated recording even when ffprobe reads its meta
   await writeFile(truncated, bytes.subarray(0, Math.floor(bytes.length * 0.7)));
   // Metadata alone must not be treated as proof that the recording is playable.
   await execute('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', truncated]);
-  await rejectsCli(['inspect', truncated], /ffmpeg exited with code/);
+  const quick = await cli('inspect', truncated);
+  assert.equal(quick.decodeValid, null);
+  assert.equal(quick.verification, 'metadata');
+  await rejectsCli(['inspect', truncated, '--mode=strict'], /ffmpeg exited with code/);
   const output = join(directory, 'truncated conversion.mp4');
-  await rejectsCli(['convert', truncated, output], /ffmpeg exited with code/);
+  await rejectsCli(['convert', truncated, output, '--mode=strict'], /ffmpeg exited with code/);
+  await assert.rejects(stat(output), { code: 'ENOENT' });
+});
+
+test('export replaces audible input with actual silence, removes old tags/chapters and marks both tracks default', async () => {
+  const metadata = join(directory, 'old-metadata.txt');
+  await writeFile(metadata, ';FFMETADATA1\ntitle=old private title\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=old chapter\n');
+  const source = join(directory, 'audible-source.mp4');
+  await ffmpeg('-i', originalMp4, '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=44100',
+    '-f', 'ffmetadata', '-i', metadata, '-map', '0:v:0', '-map', '1:a:0',
+    '-map_metadata', '2', '-map_chapters', '2', '-metadata:s:v:0', 'title=old video title',
+    '-c:v', 'copy', '-c:a', 'aac', '-t', '1.2', source);
+  const output = join(directory, 'silent-output.mp4');
+  const result = await convertMedia(source, output, { mode: 'strict' });
+  assert.equal(result.decodeValid, true);
+  const { stdout: pcm } = await execute('ffmpeg', ['-v', 'error', '-i', output, '-map', '0:a:0',
+    '-c:a', 'pcm_s16le', '-f', 's16le', '-'], { encoding: 'buffer', windowsHide: true });
+  assert.ok(pcm.length > 10000);
+  assert.ok(pcm.every(byte => byte === 0), 'AAC decodes to complete silence');
+  const { stdout } = await execute('ffprobe', ['-v', 'error', '-show_chapters', '-show_format', '-show_streams', '-of', 'json', output]);
+  const data = JSON.parse(stdout);
+  assert.equal(data.format.tags.title, undefined);
+  assert.equal(data.streams[0].tags?.title, undefined);
+  assert.deepEqual(data.chapters, []);
+  assert.deepEqual(data.streams.map(stream => stream.disposition.default), [1, 1]);
+  assert.ok(Math.abs(Number(data.streams[0].duration) - Number(data.streams[1].duration)) < 0.1);
+});
+
+test('external Russian captions leave screenshot viewport pixels intact and are timed in video', async () => {
+  const image = join(directory, 'viewport.png');
+  await ffmpeg('-f', 'lavfi', '-i', 'color=c=teal:size=640x360', '-frames:v', '1', image);
+  const screenshot = join(directory, 'caption-below.png');
+  await captionScreenshot(await readFile(image), screenshot, 'Русская подпись под кадром\nВторая строка не закрывает интерфейс');
+  const pixels = async path => (await execute('ffmpeg', ['-v', 'error', '-i', path,
+    '-vf', 'crop=640:360:0:0,format=rgb24', '-frames:v', '1', '-f', 'rawvideo', '-'],
+    { encoding: 'buffer', windowsHide: true })).stdout;
+  assert.deepEqual(await pixels(screenshot), await pixels(image));
+  const literal = join(directory, 'literal-caption.png');
+  await captionScreenshot(await readFile(image), literal, 'Буквальный текст {\\clip(0,0,640,360)\\pos(100,100)}');
+  assert.deepEqual(await pixels(literal), await pixels(image), 'caption text cannot move into the viewport');
+  const input = join(directory, 'caption-input.mp4');
+  await ffmpeg('-loop', '1', '-i', image, '-t', '1.2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', input);
+  const track = join(directory, 'captions.json');
+  await writeFile(track, JSON.stringify([{ start: 0.2, end: 0.8, text: 'Подпись только в середине' }]));
+  const output = join(directory, 'caption-video.mp4');
+  const result = await cli('convert', input, output, `--captions=${track}`);
+  assert.equal(result.width, 640);
+  assert.equal(result.height, 456);
+  const { frames } = await cli('inspect', output, '--at=0.08,0.4,1.04', `--frames-dir=${join(directory, 'caption-frames')}`);
+  const band = async path => (await execute('ffmpeg', ['-v', 'error', '-i', path,
+    '-vf', 'crop=640:96:0:360,format=gray', '-frames:v', '1', '-f', 'rawvideo', '-'],
+    { encoding: 'buffer', windowsHide: true })).stdout;
+  const lit = bytes => bytes.filter(value => value > 180).length;
+  assert.equal(lit(await band(frames[0].path)), 0);
+  assert.ok(lit(await band(frames[1].path)) > 200);
+  assert.equal(lit(await band(frames[2].path)), 0);
+});
+
+test('large compositions fit Main 4.0 dimensions without cropping', async () => {
+  const input = join(directory, 'large.mp4');
+  await ffmpeg('-f', 'lavfi', '-i', 'color=c=blue:size=2048x1200:rate=25', '-t', '0.2', '-c:v', 'libx264', input);
+  const result = await convertMedia(input, join(directory, 'fitted.mp4'), {
+    captions: [{ start: 0, end: 0.2, text: 'Подпись под большим кадром' }],
+  });
+  assert.ok(result.width <= 1920 && result.height <= 1080);
+  assert.ok(Math.abs(result.width / result.height - 2048 / (1200 + 136)) < 0.01);
+  assert.equal(result.level, 40);
+});
+
+test('invalid modes and caption intervals are rejected before output is published', async () => {
+  const output = join(directory, 'bad-options.mp4');
+  await rejectsCli(['convert', recording, output, '--mode=slow'], /mode must be/);
+  await assert.rejects(convertMedia(recording, output, { captions: [{ start: 1, end: 0.5, text: 'bad' }] }), /ordered/);
   await assert.rejects(stat(output), { code: 'ENOENT' });
 });

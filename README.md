@@ -16,16 +16,17 @@ The reviewer prefers a fresh-context subagent to reduce bias from earlier drafts
 
 ### [browser-video-qa](skills/browser-video-qa/SKILL.md)
 
-Verify a browser feature and choose **video, slideshow, or both**. Both formats follow planned key states: slides show those states; continuous video also shows the transitions and pauses at each result. The agent checks the user journey, reloads saved results when relevant, and inspects the finished media. Recordings include a visible cursor, click indicators, and readable captions. Stills are clearly labelled and do not establish smoothness or transient behavior.
+Record a browser journey as **video, slideshow, or both**. Quick mode is the default: one requested path and a small finished-media check. Strict QA, including persistence comparisons and complete decoding, is available only when explicitly requested. Both modes honor the user's requested checks. Recordings include a visible cursor, click indicators, and captions in a separate band below the viewport. Stills are clearly labelled and do not establish smoothness or transient behavior.
 
-Includes small helpers for Playwright overlays and FFmpeg processing. Uses an existing browser runtime; no application dependency upgrade is required. Desktop capture and generated narration are outside this version.
+Includes helpers for Playwright input overlays, timed external captions, and one-pass FFmpeg export: H.264 Main 4.0 at 25 FPS with AAC stereo and faststart. On Windows, caption narration defaults to local System.Speech (Microsoft Irina Desktop); turn it off with “without narration”. Speech extends each recorded step or slide when necessary, and prepared WAV files can be reused. Other operating systems keep silent AAC. Uses an existing browser runtime; no application dependency upgrade, cloud speech service, or extra NPM package is required. Desktop/system audio capture is outside this version.
 
 ```bash
 npx skills add yernende/agent-skills --skill browser-video-qa -a codex -g -y
 ```
 
 ```text
-$browser-video-qa Проверь сохранение положения двери после перезагрузки и покажи короткое видео с курсором.
+$browser-video-qa Запиши короткое видео: открой модель, поверни её и покажи результат.
+$browser-video-qa Строгий QA: проверь сохранение положения двери после перезагрузки и покажи видео с курсором.
 $browser-video-qa Проверь тот же сценарий, но сделай только слайд-шоу с ключевыми состояниями.
 ```
 
