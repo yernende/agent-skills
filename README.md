@@ -12,6 +12,21 @@ Unlike a word-count optimizer, it protects essential caveats, decision-critical 
 
 The reviewer prefers a fresh-context subagent to reduce bias from earlier drafts and brainstorming. If delegation is unavailable, it reviews inline.
 
+### [browser-video-qa](skills/browser-video-qa/SKILL.md)
+
+Verify a browser feature and choose **video, slideshow, or both**. Both formats follow planned key states: slides show those states; continuous video also shows the transitions and pauses at each result. The agent checks the user journey, reloads saved results when relevant, and inspects the finished media. Recordings include a visible cursor, click indicators, and readable captions. Stills are clearly labelled and do not establish smoothness or transient behavior.
+
+Includes small helpers for Playwright overlays and FFmpeg processing. Uses an existing browser runtime; no application dependency upgrade is required. Desktop capture and generated narration are outside this version.
+
+```bash
+npx skills add yernende/agent-skills --skill browser-video-qa -a codex -g -y
+```
+
+```text
+$browser-video-qa Проверь сохранение положения двери после перезагрузки и покажи короткое видео с курсором.
+$browser-video-qa Проверь тот же сценарий, но сделай только слайд-шоу с ключевыми состояниями.
+```
+
 ## Install for Codex (global)
 
 ```bash

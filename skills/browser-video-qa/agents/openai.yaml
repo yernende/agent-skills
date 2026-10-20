@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browser Video QA"
+  short_description: "Verify browser features with cursor-visible video"
+  default_prompt: "Use $browser-video-qa to verify this browser feature and deliver a short video with a visible cursor and captions."
