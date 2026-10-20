@@ -1,9 +1,15 @@
 ---
 name: reader-review
-description: Review UI and landing-page content after drafting or changing it. Review documents on explicit editorial requests. Improve relevance, reading order, detail, and concision. Skip routine ADRs, logs, and code-only changes unless asked.
+description: Review wording and reading flow during user interface or landing-page design, or on an explicit request for reader/editorial review. Do not activate for ordinary documentation, README/runbook/ADR updates, code changes, or task summaries.
 ---
 
 # Reader review
+
+## Invocation scope
+
+Apply automatically only during user interface or landing-page design. For documents and all other material, apply only when the user explicitly requests reader/editorial review or invokes `$reader-review`.
+
+Writing, updating, or committing documentation, README files, runbooks, ADRs, code comments, or task summaries is not a request for this review. If neither condition is met, skip this skill without reviewing or delegating.
 
 ## Run
 
