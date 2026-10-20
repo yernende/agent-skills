@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reader Review"
+  short_description: "Relevant detail and natural reading flow"
+  default_prompt: "Use $reader-review to edit this material for its intended reader."
