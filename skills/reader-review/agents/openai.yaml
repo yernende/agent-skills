@@ -1,4 +1,4 @@
 interface:
   display_name: "Reader Review"
-  short_description: "UI design or explicitly requested editorial review"
+  short_description: "Reader-focused UI, profiles, resumes, and portfolios"
   default_prompt: "Use $reader-review to edit this material for its intended reader."

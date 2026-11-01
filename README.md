@@ -6,7 +6,7 @@ A small collection of reusable, reader-first skills for coding agents.
 
 ### [reader-review](skills/reader-review/SKILL.md)
 
-Review wording and reading flow during **user interface or landing-page design**. For documents and all other material, use it only when the user explicitly requests reader/editorial review or invokes `$reader-review`. Ordinary writing and maintenance do not trigger it.
+Review wording and reading flow during **user interface or landing-page design** and when drafting, editing, or publishing **professional profiles (LinkedIn, HH), resumes, portfolios, and their media captions**. Keep public copy focused on its reader and preparation details in the private work report. For other material, use it only when the user explicitly requests reader/editorial review or invokes `$reader-review`. Ordinary documentation and maintenance do not trigger it.
 
 The review removes true but irrelevant details, repairs the order in which ideas unfold, and matches explanation depth to the reader's needs.
 
@@ -44,10 +44,10 @@ Use it explicitly:
 $reader-review Review this document for its intended audience and edit it.
 ```
 
-For **automatic review during user interface or landing-page design**, add the following instruction to `~/.codex/AGENTS.md`:
+For **automatic review during UI/landing-page design and professional profile or portfolio work**, add the following instruction to `~/.codex/AGENTS.md`:
 
 ```markdown
-- Apply $reader-review automatically only during user interface or landing-page design. Otherwise, use it only when the user explicitly requests reader/editorial review or invokes $reader-review. Writing or updating documentation, README files, runbooks, ADRs, comments, or task summaries is not a request for this review.
+- Apply $reader-review automatically during user interface or landing-page design and when drafting, editing, or publishing professional profiles (including LinkedIn and HH), resumes, portfolios, and their media captions. Otherwise, use it only when the user explicitly requests reader/editorial review or invokes $reader-review. Writing or updating ordinary documentation, README files, runbooks, ADRs, comments, or task summaries is not a request for this review.
 ```
 
 This is an agent instruction, not a programmatic hook. Installing the skill alone does not guarantee automatic invocation.

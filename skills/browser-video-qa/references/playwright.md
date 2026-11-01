@@ -2,7 +2,26 @@
 
 Use this path only when Playwright is permitted. Requires Node.js, an existing Playwright installation/browser, and FFmpeg/ffprobe with libass. The recording API has been used with Playwright 1.58.2. Do not upgrade application dependencies for recording. If recording is unavailable, use the permitted screenshot tool and clearly label a slideshow; do not silently substitute captions covering the viewport.
 
-## Quick scenario (default)
+## System123 authentication
+
+Before recording an authenticated System123 journey, use
+`authorizeBrowserContext(context, { targetUrl })` from
+`apps/system123-agent/src/playwright.ts` in the JSFrontends checkout. Alternatively,
+run `npm --prefix apps/system123-agent run cli -- browser-state --url <app-url> --output <absolute-new-file>`
+from that checkout and pass the resulting file as `storageState` to `newContext`.
+Generate a separate state for each isolated context and keep it outside source
+control; never print its contents. This setup does not replace the real UI actions
+being recorded. Discard setup pages/videos from the delivered story.
+
+If the agent returns `auth_required`, use one normal
+`npm --prefix apps/system123-agent run cli -- login`: it opens the ordinary system
+browser. Do not enter passwords in an isolated Playwright window, force login
+automatically, or treat a network/permission error as a password problem. This
+path requires the native Agent server release; a missing endpoint is a deployment
+failure, not a reason to repeat login. System123 domains and localhost are covered;
+external-site iframe authorization is outside this integration.
+
+## Quick recording example
 
 Use real absolute paths for `PROJECT_DIR`, `SKILL_DIR`, and `ARTIFACT_DIR`. Resolve the existing Playwright package from the project. Reuse authorized authentication without printing cookies/storage state. The application locators below are illustrative.
 
